@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: jirabot-postgres
+    environment:
+      POSTGRES_DB: jirabot
+      POSTGRES_USER: jirabot
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d/
+    networks:
+      - jirabot-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: jirabot-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@jirabot.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"
+    depends_on:
+      - postgres
+    networks:
+      - jirabot-network
+
+  jirabot-server:
+    build: ./server
+    container_name: jirabot-server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_USER: jirabot
+      POSTGRES_PASSWORD: password
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - jirabot-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  jirabot-network:
+    driver: bridge
