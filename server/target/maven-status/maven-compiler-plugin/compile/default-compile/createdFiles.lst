@@ -1,0 +1,4 @@
+com\jirabot\controller\TestController.class
+com\jirabot\config\SecurityConfig.class
+com\jirabot\JiraRicefwServerApplication.class
+com\jirabot\config\WebConfig.class
