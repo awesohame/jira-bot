@@ -74,6 +74,30 @@ interface ProjectIssuesResponse {
     total: number;
 }
 
+interface JiraTransition {
+    id: string;
+    name: string;
+    to?: {
+        self: string;
+        description: string;
+        iconUrl: string;
+        name: string;
+        id: string;
+        statusCategory: {
+            self: string;
+            id: number;
+            key: string;
+            colorName: string;
+            name: string;
+        };
+    };
+}
+
+interface TransitionsResponse {
+    expand: string;
+    transitions: JiraTransition[];
+}
+
 const ProjectDetails: React.FC = () => {
     const { projectKey } = useParams<{ projectKey: string }>();
     const navigate = useNavigate();
@@ -111,6 +135,13 @@ const ProjectDetails: React.FC = () => {
         ricefwCategory: 'Uncategorized',
         labels: ''
     });
+
+    // Status Change Modal state
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [selectedIssue, setSelectedIssue] = useState<JiraIssue | null>(null);
+    const [availableTransitions, setAvailableTransitions] = useState<JiraTransition[]>([]);
+    const [isLoadingTransitions, setIsLoadingTransitions] = useState(false);
+    const [isTransitioning, setIsTransitioning] = useState(false);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -276,6 +307,80 @@ const ProjectDetails: React.FC = () => {
         } finally {
             setIsCreating(false);
         }
+    };
+
+    // Fetch available transitions for an issue
+    const fetchTransitions = async (issueKey: string) => {
+        setIsLoadingTransitions(true);
+        try {
+            const token = localStorage.getItem('sessionToken');
+            
+            const response = await fetch(`http://localhost:8080/api/projects/${projectKey}/issues/${issueKey}/transitions`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch transitions: ${response.statusText}`);
+            }
+
+            const data: TransitionsResponse = await response.json();
+            setAvailableTransitions(data.transitions);
+        } catch (err) {
+            console.error('Error fetching transitions:', err);
+            alert(`Failed to fetch available status transitions: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setIsLoadingTransitions(false);
+        }
+    };
+
+    // Apply a transition to change issue status
+    const handleStatusChange = async (transitionId: string) => {
+        if (!selectedIssue) return;
+        
+        setIsTransitioning(true);
+        try {
+            const token = localStorage.getItem('sessionToken');
+            
+            const requestBody = {
+                transitionId: transitionId
+            };
+
+            const response = await fetch(`http://localhost:8080/api/projects/${projectKey}/issues/${selectedIssue.key}/transitions`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to change status: ${response.statusText}`);
+            }
+
+            // Refresh the issues list to show updated status
+            window.location.reload();
+            
+            setIsStatusModalOpen(false);
+            setSelectedIssue(null);
+            setAvailableTransitions([]);
+            
+        } catch (err) {
+            console.error('Error changing issue status:', err);
+            alert(`Failed to change issue status: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setIsTransitioning(false);
+        }
+    };
+
+    // Open status change modal
+    const openStatusModal = async (issue: JiraIssue) => {
+        setSelectedIssue(issue);
+        setIsStatusModalOpen(true);
+        await fetchTransitions(issue.key);
     };
 
     // Helper function to determine RICEFW category from issue labels
@@ -637,6 +742,13 @@ const ProjectDetails: React.FC = () => {
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(issue.status.statusCategory.key)}`}>
                                                     {issue.status.name}
                                                 </span>
+                                                <button
+                                                    onClick={() => openStatusModal(issue)}
+                                                    className="ml-2 px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors duration-200"
+                                                    title="Change Status"
+                                                >
+                                                    Change Status
+                                                </button>
                                             </div>
                                             <h3 className="text-lg font-semibold text-gray-900 mb-2">
                                                 {issue.summary}
@@ -894,6 +1006,84 @@ const ProjectDetails: React.FC = () => {
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Status Change Modal */}
+                {isStatusModalOpen && selectedIssue && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                            <div className="p-6">
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                                    Change Status for {selectedIssue.key}
+                                </h2>
+                                
+                                <div className="mb-4">
+                                    <p className="text-sm text-gray-600 mb-2">
+                                        <strong>Current Status:</strong> <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedIssue.status.statusCategory.key)}`}>
+                                            {selectedIssue.status.name}
+                                        </span>
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                        <strong>Issue:</strong> {selectedIssue.summary}
+                                    </p>
+                                </div>
+
+                                {isLoadingTransitions ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        <span className="ml-3 text-gray-600">Loading available transitions...</span>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <h3 className="text-sm font-medium text-gray-700 mb-3">Available Status Changes:</h3>
+                                        {availableTransitions.length === 0 ? (
+                                            <p className="text-gray-500 text-sm">No status transitions available for this issue.</p>
+                                        ) : (
+                                            availableTransitions.map((transition) => (
+                                                <button
+                                                    key={transition.id}
+                                                    onClick={() => handleStatusChange(transition.id)}
+                                                    disabled={isTransitioning}
+                                                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <span className="font-medium text-gray-900">{transition.name}</span>
+                                                            {transition.to && (
+                                                                <div className="text-sm text-gray-600 mt-1">
+                                                                    → <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(transition.to.statusCategory.key)}`}>
+                                                                        {transition.to.name}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {isTransitioning && (
+                                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Modal Actions */}
+                                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
+                                    <button
+                                        onClick={() => {
+                                            setIsStatusModalOpen(false);
+                                            setSelectedIssue(null);
+                                            setAvailableTransitions([]);
+                                        }}
+                                        disabled={isTransitioning}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200 disabled:opacity-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

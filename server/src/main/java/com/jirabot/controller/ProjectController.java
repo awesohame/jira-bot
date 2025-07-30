@@ -200,11 +200,100 @@ public class ProjectController {
         }
     }
 
+    /**
+     * Get available transitions for an issue
+     */
+    @GetMapping("/{projectKey}/issues/{issueKey}/transitions")
+    public ResponseEntity<?> getIssueTransitions(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String projectKey,
+            @PathVariable String issueKey) {
+
+        try {
+            // Extract and validate session token
+            String sessionToken = extractToken(authHeader);
+            if (sessionToken == null) {
+                return ResponseEntity.badRequest().body("Invalid authorization header");
+            }
+
+            // Get user by session token
+            Optional<User> userOptional = authService.getUserByToken(sessionToken);
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired session");
+            }
+
+            User user = userOptional.get();
+            logger.info("Fetching transitions for issue: {} in project: {} for user: {}", issueKey, projectKey, user.getUsername());
+
+            // Call Jira service to get transitions
+            Object transitions = jiraService.getIssueTransitions(issueKey, user.getEmail(), user.getJiraToken());
+
+            return ResponseEntity.ok(transitions);
+
+        } catch (Exception e) {
+            logger.error("Error fetching transitions for issue: {}", issueKey, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching issue transitions: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Apply a transition to change issue status
+     */
+    @PostMapping("/{projectKey}/issues/{issueKey}/transitions")
+    public ResponseEntity<?> transitionIssue(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String projectKey,
+            @PathVariable String issueKey,
+            @RequestBody TransitionRequest request) {
+
+        try {
+            // Extract and validate session token
+            String sessionToken = extractToken(authHeader);
+            if (sessionToken == null) {
+                return ResponseEntity.badRequest().body("Invalid authorization header");
+            }
+
+            // Get user by session token
+            Optional<User> userOptional = authService.getUserByToken(sessionToken);
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired session");
+            }
+
+            User user = userOptional.get();
+            logger.info("Applying transition {} to issue: {} in project: {} for user: {}", 
+                    request.getTransitionId(), issueKey, projectKey, user.getUsername());
+
+            // Call Jira service to apply transition
+            Object result = jiraService.transitionIssue(issueKey, request.getTransitionId(), user.getEmail(), user.getJiraToken());
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error applying transition to issue: {}", issueKey, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error applying transition: " + e.getMessage());
+        }
+    }
+
     private String extractToken(String authHeader) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
         return null;
+    }
+
+    // DTO for transition request
+    public static class TransitionRequest {
+        private String transitionId;
+
+        public String getTransitionId() {
+            return transitionId;
+        }
+
+        public void setTransitionId(String transitionId) {
+            this.transitionId = transitionId;
+        }
     }
 
     // DTO for update labels request

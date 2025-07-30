@@ -429,4 +429,103 @@ public class JiraService {
             throw new RuntimeException("Error creating issue: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Get available transitions for an issue
+     */
+    public Object getIssueTransitions(String issueKey, String email, String jiraToken) {
+        try {
+            String domain = extractDomainFromEmail(email);
+            String transitionsUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions", 
+                    domain, issueKey);
+
+            // Create Basic Auth header
+            String auth = email + ":" + jiraToken;
+            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+            String authHeader = "Basic " + new String(encodedAuth);
+
+            // Set headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", authHeader);
+            headers.set("Accept", "application/json");
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            logger.info("Fetching transitions for issue: {} from URL: {}", issueKey, transitionsUrl);
+
+            // Make the API call
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    transitionsUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Object.class);
+
+            if (response.getStatusCode() == HttpStatus.OK) {
+                logger.info("Successfully fetched transitions for issue: {}", issueKey);
+                return response.getBody();
+            } else {
+                logger.error("Failed to fetch transitions for issue: {}. Status: {}", issueKey, response.getStatusCode());
+                throw new RuntimeException("Failed to fetch transitions: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error fetching transitions for issue {}: {}", issueKey, e.getMessage(), e);
+            throw new RuntimeException("Error fetching transitions: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Apply a transition to change issue status
+     */
+    public Object transitionIssue(String issueKey, String transitionId, String email, String jiraToken) {
+        try {
+            String domain = extractDomainFromEmail(email);
+            String transitionUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions", 
+                    domain, issueKey);
+
+            // Create Basic Auth header
+            String auth = email + ":" + jiraToken;
+            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+            String authHeader = "Basic " + new String(encodedAuth);
+
+            // Create request body
+            String requestBody = String.format("""
+                {
+                  "transition": {
+                    "id": "%s"
+                  }
+                }
+                """, transitionId);
+
+            // Set headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", authHeader);
+            headers.set("Content-Type", "application/json");
+            headers.set("Accept", "application/json");
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+            logger.info("Applying transition {} to issue: {} with URL: {}", transitionId, issueKey, transitionUrl);
+            logger.info("Transition request body: {}", requestBody);
+
+            // Make the API call
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    transitionUrl,
+                    HttpMethod.POST,
+                    entity,
+                    Object.class);
+
+            if (response.getStatusCode() == HttpStatus.NO_CONTENT || response.getStatusCode() == HttpStatus.OK) {
+                logger.info("Successfully applied transition {} to issue: {}", transitionId, issueKey);
+                return Map.of("success", true, "message", "Transition applied successfully");
+            } else {
+                logger.error("Failed to apply transition {} to issue: {}. Status: {}", transitionId, issueKey, response.getStatusCode());
+                throw new RuntimeException("Failed to apply transition: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error applying transition {} to issue {}: {}", transitionId, issueKey, e.getMessage(), e);
+            throw new RuntimeException("Error applying transition: " + e.getMessage(), e);
+        }
+    }
 }
