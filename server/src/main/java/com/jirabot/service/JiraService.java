@@ -327,7 +327,7 @@ public class JiraService {
     public Object createIssue(String projectKey, String email, String apiToken, CreateIssueRequest request) {
         try {
             String domain = extractDomainFromEmail(email);
-            
+
             logger.info("Creating issue in project '{}' with summary '{}'", projectKey, request.getSummary());
 
             // Construct the JIRA API URL for creating issue
@@ -343,7 +343,8 @@ public class JiraService {
             labelsJson.append("[");
             if (request.getLabels() != null && !request.getLabels().isEmpty()) {
                 for (int i = 0; i < request.getLabels().size(); i++) {
-                    if (i > 0) labelsJson.append(", ");
+                    if (i > 0)
+                        labelsJson.append(", ");
                     labelsJson.append("\"").append(request.getLabels().get(i)).append("\"");
                 }
             }
@@ -352,52 +353,53 @@ public class JiraService {
             // Create description in Atlassian Document Format (ADF)
             String descriptionADF = "";
             if (request.getDescription() != null && !request.getDescription().trim().isEmpty()) {
-                String escapedDescription = request.getDescription().replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
+                String escapedDescription = request.getDescription().replace("\"", "\\\"").replace("\n", "\\n")
+                        .replace("\r", "");
                 descriptionADF = String.format("""
-                    "description": {
-                      "type": "doc",
-                      "version": 1,
-                      "content": [
-                        {
-                          "type": "paragraph",
+                        "description": {
+                          "type": "doc",
+                          "version": 1,
                           "content": [
                             {
-                              "type": "text",
-                              "text": "%s"
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "%s"
+                                }
+                              ]
                             }
                           ]
-                        }
-                      ]
-                    },""", escapedDescription);
+                        },""", escapedDescription);
             } else {
                 descriptionADF = "";
             }
 
             // Create the request body
             String requestBody = String.format("""
-                {
-                  "fields": {
-                    "project": {
-                      "key": "%s"
-                    },
-                    "summary": "%s",
-                    %s
-                    "issuetype": {
-                      "name": "%s"
-                    },
-                    "priority": {
-                      "name": "%s"
-                    },
-                    "labels": %s
-                  }
-                }
-                """, 
-                projectKey,
-                request.getSummary().replace("\"", "\\\""),
-                descriptionADF,
-                request.getIssueTypeName() != null ? request.getIssueTypeName() : "Task",
-                request.getPriorityName() != null ? request.getPriorityName() : "Medium",
-                labelsJson.toString());
+                    {
+                      "fields": {
+                        "project": {
+                          "key": "%s"
+                        },
+                        "summary": "%s",
+                        %s
+                        "issuetype": {
+                          "name": "%s"
+                        },
+                        "priority": {
+                          "name": "%s"
+                        },
+                        "labels": %s
+                      }
+                    }
+                    """,
+                    projectKey,
+                    request.getSummary().replace("\"", "\\\""),
+                    descriptionADF,
+                    request.getIssueTypeName() != null ? request.getIssueTypeName() : "Task",
+                    request.getPriorityName() != null ? request.getPriorityName() : "Medium",
+                    labelsJson.toString());
 
             // Set headers for POST request
             HttpHeaders postHeaders = new HttpHeaders();
@@ -436,7 +438,7 @@ public class JiraService {
     public Object getIssueTransitions(String issueKey, String email, String jiraToken) {
         try {
             String domain = extractDomainFromEmail(email);
-            String transitionsUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions", 
+            String transitionsUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions",
                     domain, issueKey);
 
             // Create Basic Auth header
@@ -464,7 +466,8 @@ public class JiraService {
                 logger.info("Successfully fetched transitions for issue: {}", issueKey);
                 return response.getBody();
             } else {
-                logger.error("Failed to fetch transitions for issue: {}. Status: {}", issueKey, response.getStatusCode());
+                logger.error("Failed to fetch transitions for issue: {}. Status: {}", issueKey,
+                        response.getStatusCode());
                 throw new RuntimeException("Failed to fetch transitions: " + response.getStatusCode());
             }
 
@@ -480,7 +483,7 @@ public class JiraService {
     public Object transitionIssue(String issueKey, String transitionId, String email, String jiraToken) {
         try {
             String domain = extractDomainFromEmail(email);
-            String transitionUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions", 
+            String transitionUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s/transitions",
                     domain, issueKey);
 
             // Create Basic Auth header
@@ -490,12 +493,12 @@ public class JiraService {
 
             // Create request body
             String requestBody = String.format("""
-                {
-                  "transition": {
-                    "id": "%s"
-                  }
-                }
-                """, transitionId);
+                    {
+                      "transition": {
+                        "id": "%s"
+                      }
+                    }
+                    """, transitionId);
 
             // Set headers
             HttpHeaders headers = new HttpHeaders();
@@ -519,7 +522,8 @@ public class JiraService {
                 logger.info("Successfully applied transition {} to issue: {}", transitionId, issueKey);
                 return Map.of("success", true, "message", "Transition applied successfully");
             } else {
-                logger.error("Failed to apply transition {} to issue: {}. Status: {}", transitionId, issueKey, response.getStatusCode());
+                logger.error("Failed to apply transition {} to issue: {}. Status: {}", transitionId, issueKey,
+                        response.getStatusCode());
                 throw new RuntimeException("Failed to apply transition: " + response.getStatusCode());
             }
 

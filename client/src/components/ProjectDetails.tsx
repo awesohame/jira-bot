@@ -106,14 +106,14 @@ const ProjectDetails: React.FC = () => {
     const [filteredIssues, setFilteredIssues] = useState<JiraIssue[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Chat state
     const [chatMessages, setChatMessages] = useState<{ text: string; sender: 'user' | 'bot'; timestamp: Date }[]>([
         { text: "Hello! I'm here to help you manage RICEFW categories for your JIRA issues. You can ask me to categorize issues using natural language.", sender: 'bot', timestamp: new Date() }
     ]);
     const [chatInput, setChatInput] = useState('');
     const [isChatLoading, setIsChatLoading] = useState(false);
-    
+
     // Filter state
     const [filters, setFilters] = useState({
         status: '',
@@ -192,7 +192,7 @@ const ProjectDetails: React.FC = () => {
             filtered = filtered.filter(issue => issue.priority.name === filters.priority);
         }
         if (filters.assignee) {
-            filtered = filtered.filter(issue => 
+            filtered = filtered.filter(issue =>
                 issue.assignee?.displayName.toLowerCase().includes(filters.assignee.toLowerCase())
             );
         }
@@ -207,7 +207,7 @@ const ProjectDetails: React.FC = () => {
             filtered = filtered.filter(issue => issue.issueType.name === filters.issueType);
         }
         if (filters.searchText) {
-            filtered = filtered.filter(issue => 
+            filtered = filtered.filter(issue =>
                 issue.summary.toLowerCase().includes(filters.searchText.toLowerCase()) ||
                 issue.key.toLowerCase().includes(filters.searchText.toLowerCase())
             );
@@ -228,10 +228,10 @@ const ProjectDetails: React.FC = () => {
 
         // Simulate AI response (in future, this will call actual AI service)
         setTimeout(() => {
-            const botMessage = { 
-                text: "I understand you want to categorize issues. While I'm getting smarter, for now you can use the dropdown menus on the right to categorize issues manually. Soon I'll be able to process natural language requests like 'Mark all enhancement issues as Enhancement category'!", 
-                sender: 'bot' as const, 
-                timestamp: new Date() 
+            const botMessage = {
+                text: "I understand you want to categorize issues. While I'm getting smarter, for now you can use the dropdown menus on the right to categorize issues manually. Soon I'll be able to process natural language requests like 'Mark all enhancement issues as Enhancement category'!",
+                sender: 'bot' as const,
+                timestamp: new Date()
             };
             setChatMessages(prev => [...prev, botMessage]);
             setIsChatLoading(false);
@@ -251,7 +251,7 @@ const ProjectDetails: React.FC = () => {
 
         try {
             const token = localStorage.getItem('sessionToken');
-            
+
             // Prepare labels array
             const labelsArray = [];
             if (createForm.ricefwCategory !== 'Uncategorized') {
@@ -285,10 +285,10 @@ const ProjectDetails: React.FC = () => {
             }
 
             const newIssue = await response.json();
-            
+
             // Add the new issue to the beginning of the issues list
             setIssues(prev => [newIssue, ...prev]);
-            
+
             // Reset form and close modal
             setCreateForm({
                 summary: '',
@@ -299,7 +299,7 @@ const ProjectDetails: React.FC = () => {
                 labels: ''
             });
             setIsCreateModalOpen(false);
-            
+
             alert('Issue created successfully!');
         } catch (err) {
             console.error('Error creating issue:', err);
@@ -314,7 +314,7 @@ const ProjectDetails: React.FC = () => {
         setIsLoadingTransitions(true);
         try {
             const token = localStorage.getItem('sessionToken');
-            
+
             const response = await fetch(`http://localhost:8080/api/projects/${projectKey}/issues/${issueKey}/transitions`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -339,11 +339,11 @@ const ProjectDetails: React.FC = () => {
     // Apply a transition to change issue status
     const handleStatusChange = async (transitionId: string) => {
         if (!selectedIssue) return;
-        
+
         setIsTransitioning(true);
         try {
             const token = localStorage.getItem('sessionToken');
-            
+
             const requestBody = {
                 transitionId: transitionId
             };
@@ -363,11 +363,11 @@ const ProjectDetails: React.FC = () => {
 
             // Refresh the issues list to show updated status
             window.location.reload();
-            
+
             setIsStatusModalOpen(false);
             setSelectedIssue(null);
             setAvailableTransitions([]);
-            
+
         } catch (err) {
             console.error('Error changing issue status:', err);
             alert(`Failed to change issue status: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -552,11 +552,10 @@ const ProjectDetails: React.FC = () => {
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {chatMessages.map((message, index) => (
                                     <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[80%] p-3 rounded-lg ${
-                                            message.sender === 'user' 
-                                                ? 'bg-blue-500 text-white' 
+                                        <div className={`max-w-[80%] p-3 rounded-lg ${message.sender === 'user'
+                                                ? 'bg-blue-500 text-white'
                                                 : 'bg-gray-100 text-gray-900'
-                                        }`}>
+                                            }`}>
                                             <p className="text-sm">{message.text}</p>
                                             <span className="text-xs opacity-70 block mt-1">
                                                 {message.timestamp.toLocaleTimeString()}
@@ -797,8 +796,8 @@ const ProjectDetails: React.FC = () => {
 
                                                 {/* Display current category as a badge */}
                                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRicefwCategory(issue.labels) === 'Uncategorized'
-                                                        ? 'bg-gray-100 text-gray-800'
-                                                        : 'bg-blue-100 text-blue-800'
+                                                    ? 'bg-gray-100 text-gray-800'
+                                                    : 'bg-blue-100 text-blue-800'
                                                     }`}>
                                                     {getRicefwCategory(issue.labels)}
                                                 </span>
@@ -1019,7 +1018,7 @@ const ProjectDetails: React.FC = () => {
                                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
                                     Change Status for {selectedIssue.key}
                                 </h2>
-                                
+
                                 <div className="mb-4">
                                     <p className="text-sm text-gray-600 mb-2">
                                         <strong>Current Status:</strong> <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedIssue.status.statusCategory.key)}`}>

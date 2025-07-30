@@ -223,7 +223,8 @@ public class ProjectController {
             }
 
             User user = userOptional.get();
-            logger.info("Fetching transitions for issue: {} in project: {} for user: {}", issueKey, projectKey, user.getUsername());
+            logger.info("Fetching transitions for issue: {} in project: {} for user: {}", issueKey, projectKey,
+                    user.getUsername());
 
             // Call Jira service to get transitions
             Object transitions = jiraService.getIssueTransitions(issueKey, user.getEmail(), user.getJiraToken());
@@ -261,11 +262,12 @@ public class ProjectController {
             }
 
             User user = userOptional.get();
-            logger.info("Applying transition {} to issue: {} in project: {} for user: {}", 
+            logger.info("Applying transition {} to issue: {} in project: {} for user: {}",
                     request.getTransitionId(), issueKey, projectKey, user.getUsername());
 
             // Call Jira service to apply transition
-            Object result = jiraService.transitionIssue(issueKey, request.getTransitionId(), user.getEmail(), user.getJiraToken());
+            Object result = jiraService.transitionIssue(issueKey, request.getTransitionId(), user.getEmail(),
+                    user.getJiraToken());
 
             return ResponseEntity.ok(result);
 

@@ -10,7 +10,8 @@ public class CreateIssueRequest {
     private List<String> labels;
 
     // Default constructor
-    public CreateIssueRequest() {}
+    public CreateIssueRequest() {
+    }
 
     // Getters and setters
     public String getSummary() {
