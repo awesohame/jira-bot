@@ -1,5 +1,6 @@
 com\jirabot\entity\BaseEntity.class
 com\jirabot\entity\RicefwComment.class
+com\jirabot\dto\CreateIssueRequest.class
 com\jirabot\config\RestTemplateConfig.class
 com\jirabot\repository\UserRepository.class
 com\jirabot\JiraRicefwServerApplication.class
@@ -14,6 +15,7 @@ com\jirabot\entity\User.class
 com\jirabot\service\JiraService.class
 com\jirabot\repository\JiraConfigurationRepository.class
 com\jirabot\entity\Priority.class
+com\jirabot\controller\ProjectController$UpdateLabelsRequest.class
 com\jirabot\dto\JiraProjectRequest.class
 com\jirabot\dto\LoginRequest.class
 com\jirabot\config\JpaConfig.class

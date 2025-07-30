@@ -2,6 +2,7 @@ package com.jirabot.service;
 
 import com.jirabot.dto.JiraProjectRequest;
 import com.jirabot.dto.JiraProjectResponse;
+import com.jirabot.dto.CreateIssueRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,7 +92,7 @@ public class JiraService {
                     jqlQuery,
                     50,
                     0,
-                    "id,key,summary,status,priority,assignee,created,updated,issuetype");
+                    "id,key,summary,status,priority,assignee,created,updated,issuetype,labels");
 
             // Create Basic Auth header
             String auth = email + ":" + apiToken;
@@ -166,6 +167,7 @@ public class JiraService {
                             transformedIssue.put("created", fields.get("created"));
                             transformedIssue.put("updated", fields.get("updated"));
                             transformedIssue.put("issueType", fields.get("issuetype")); // Note: JIRA uses "issuetype"
+                            transformedIssue.put("labels", fields.get("labels")); // Add labels field
                         }
 
                         transformedIssues.add(transformedIssue);
@@ -210,5 +212,221 @@ public class JiraService {
             return domain;
         }
         throw new IllegalArgumentException("Invalid email format");
+    }
+
+    public void updateIssueLabels(String issueKey, String email, String apiToken, String ricefwCategory) {
+        try {
+            String domain = extractDomainFromEmail(email);
+
+            logger.info("Updating labels for issue '{}' with RICEFW category '{}'", issueKey, ricefwCategory);
+
+            // First, get the current issue to retrieve existing labels
+            String getIssueUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s?fields=labels", domain,
+                    issueKey);
+
+            // Create Basic Auth header
+            String auth = email + ":" + apiToken;
+            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+            String authHeader = "Basic " + new String(encodedAuth);
+
+            // Set headers for GET request
+            HttpHeaders getHeaders = new HttpHeaders();
+            getHeaders.set("Authorization", authHeader);
+            getHeaders.set("Accept", "application/json");
+
+            HttpEntity<String> getEntity = new HttpEntity<>(getHeaders);
+
+            // Get current issue data
+            ResponseEntity<Object> getResponse = restTemplate.exchange(
+                    getIssueUrl,
+                    HttpMethod.GET,
+                    getEntity,
+                    Object.class);
+
+            // Extract current labels
+            List<String> currentLabels = new ArrayList<>();
+            if (getResponse.getStatusCode() == HttpStatus.OK && getResponse.getBody() != null) {
+                if (getResponse.getBody() instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> issueData = (Map<String, Object>) getResponse.getBody();
+                    if (issueData.get("fields") instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> fields = (Map<String, Object>) issueData.get("fields");
+                        if (fields.get("labels") instanceof List) {
+                            @SuppressWarnings("unchecked")
+                            List<String> labels = (List<String>) fields.get("labels");
+                            currentLabels.addAll(labels);
+                        }
+                    }
+                }
+            }
+
+            // Remove any existing RICEFW category labels
+            List<String> ricefwCategories = Arrays.asList("Report", "Interface", "Conversion", "Enhancement", "Form",
+                    "Workflow");
+            currentLabels.removeIf(ricefwCategories::contains);
+
+            // Add the new RICEFW category if it's not "Uncategorized"
+            if (!"Uncategorized".equals(ricefwCategory)) {
+                currentLabels.add(ricefwCategory);
+            }
+
+            // Construct the JIRA API URL for updating issue
+            String updateIssueUrl = String.format("https://%s.atlassian.net/rest/api/3/issue/%s", domain, issueKey);
+
+            // Create the request body for updating labels with all preserved labels
+            StringBuilder labelsJson = new StringBuilder();
+            labelsJson.append("[");
+            for (int i = 0; i < currentLabels.size(); i++) {
+                if (i > 0)
+                    labelsJson.append(", ");
+                labelsJson.append("\"").append(currentLabels.get(i)).append("\"");
+            }
+            labelsJson.append("]");
+
+            String requestBody = String.format("""
+                    {
+                      "update": {
+                        "labels": [
+                          { "set": %s }
+                        ]
+                      }
+                    }
+                    """, labelsJson.toString());
+
+            // Set headers for PUT request
+            HttpHeaders putHeaders = new HttpHeaders();
+            putHeaders.set("Authorization", authHeader);
+            putHeaders.set("Content-Type", "application/json");
+            putHeaders.set("Accept", "application/json");
+
+            HttpEntity<String> putEntity = new HttpEntity<>(requestBody, putHeaders);
+
+            logger.info("Calling JIRA API to update issue labels: {} with body: {}", updateIssueUrl, requestBody);
+
+            // Make the API call
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    updateIssueUrl,
+                    HttpMethod.PUT,
+                    putEntity,
+                    Object.class);
+
+            if (response.getStatusCode() == HttpStatus.NO_CONTENT || response.getStatusCode() == HttpStatus.OK) {
+                logger.info("Successfully updated labels for issue: {} with preserved non-RICEFW labels", issueKey);
+            } else {
+                logger.error("Failed to update labels for issue: {}. Status: {}", issueKey, response.getStatusCode());
+                throw new RuntimeException("Failed to update issue labels: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error updating labels for issue {}: {}", issueKey, e.getMessage(), e);
+            throw new RuntimeException("Error updating labels for issue: " + e.getMessage(), e);
+        }
+    }
+
+    public Object createIssue(String projectKey, String email, String apiToken, CreateIssueRequest request) {
+        try {
+            String domain = extractDomainFromEmail(email);
+            
+            logger.info("Creating issue in project '{}' with summary '{}'", projectKey, request.getSummary());
+
+            // Construct the JIRA API URL for creating issue
+            String createIssueUrl = String.format("https://%s.atlassian.net/rest/api/3/issue", domain);
+
+            // Create Basic Auth header
+            String auth = email + ":" + apiToken;
+            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+            String authHeader = "Basic " + new String(encodedAuth);
+
+            // Construct labels array for request body
+            StringBuilder labelsJson = new StringBuilder();
+            labelsJson.append("[");
+            if (request.getLabels() != null && !request.getLabels().isEmpty()) {
+                for (int i = 0; i < request.getLabels().size(); i++) {
+                    if (i > 0) labelsJson.append(", ");
+                    labelsJson.append("\"").append(request.getLabels().get(i)).append("\"");
+                }
+            }
+            labelsJson.append("]");
+
+            // Create description in Atlassian Document Format (ADF)
+            String descriptionADF = "";
+            if (request.getDescription() != null && !request.getDescription().trim().isEmpty()) {
+                String escapedDescription = request.getDescription().replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
+                descriptionADF = String.format("""
+                    "description": {
+                      "type": "doc",
+                      "version": 1,
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "%s"
+                            }
+                          ]
+                        }
+                      ]
+                    },""", escapedDescription);
+            } else {
+                descriptionADF = "";
+            }
+
+            // Create the request body
+            String requestBody = String.format("""
+                {
+                  "fields": {
+                    "project": {
+                      "key": "%s"
+                    },
+                    "summary": "%s",
+                    %s
+                    "issuetype": {
+                      "name": "%s"
+                    },
+                    "priority": {
+                      "name": "%s"
+                    },
+                    "labels": %s
+                  }
+                }
+                """, 
+                projectKey,
+                request.getSummary().replace("\"", "\\\""),
+                descriptionADF,
+                request.getIssueTypeName() != null ? request.getIssueTypeName() : "Task",
+                request.getPriorityName() != null ? request.getPriorityName() : "Medium",
+                labelsJson.toString());
+
+            // Set headers for POST request
+            HttpHeaders postHeaders = new HttpHeaders();
+            postHeaders.set("Authorization", authHeader);
+            postHeaders.set("Content-Type", "application/json");
+            postHeaders.set("Accept", "application/json");
+
+            HttpEntity<String> postEntity = new HttpEntity<>(requestBody, postHeaders);
+
+            logger.info("Calling JIRA API to create issue: {} with body: {}", createIssueUrl, requestBody);
+
+            // Make the API call
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    createIssueUrl,
+                    HttpMethod.POST,
+                    postEntity,
+                    Object.class);
+
+            if (response.getStatusCode() == HttpStatus.CREATED || response.getStatusCode() == HttpStatus.OK) {
+                logger.info("Successfully created issue in project: {}", projectKey);
+                return response.getBody();
+            } else {
+                logger.error("Failed to create issue in project: {}. Status: {}", projectKey, response.getStatusCode());
+                throw new RuntimeException("Failed to create issue: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error creating issue in project {}: {}", projectKey, e.getMessage(), e);
+            throw new RuntimeException("Error creating issue: " + e.getMessage(), e);
+        }
     }
 }

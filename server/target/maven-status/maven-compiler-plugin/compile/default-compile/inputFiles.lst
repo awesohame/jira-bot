@@ -17,6 +17,7 @@ D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\config\WebConfig.j
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\config\JpaConfig.java
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\entity\JiraConfiguration.java
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\controller\ProjectController.java
+D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\dto\CreateIssueRequest.java
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\entity\RicefwType.java
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\service\JiraService.java
 D:\Programming\java\jira-bot\server\src\main\java\com\jirabot\entity\BaseEntity.java
