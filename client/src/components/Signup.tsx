@@ -30,9 +30,8 @@ const Signup: React.FC = () => {
         const result = await signup(formData);
 
         if (result.success) {
-            navigate('/login', {
-                state: { message: 'Account created successfully! Please log in.' }
-            });
+            // Since we now auto-login after signup, redirect to dashboard
+            navigate('/dashboard');
         } else {
             setError(result.message);
         }

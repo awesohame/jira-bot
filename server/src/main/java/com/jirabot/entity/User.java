@@ -36,6 +36,9 @@ public class User extends BaseEntity {
     @Column(length = 500)
     private String token;
 
+    @Column(name = "jira_token", length = 500)
+    private String jiraToken;
+
     @Column(name = "token_expiry")
     private LocalDateTime tokenExpiry;
 
@@ -102,6 +105,14 @@ public class User extends BaseEntity {
 
     public void setTokenExpiry(LocalDateTime tokenExpiry) {
         this.tokenExpiry = tokenExpiry;
+    }
+
+    public String getJiraToken() {
+        return jiraToken;
+    }
+
+    public void setJiraToken(String jiraToken) {
+        this.jiraToken = jiraToken;
     }
 
     public Boolean getIsActive() {

@@ -3,12 +3,18 @@ import { authAPI, User, SignupRequest, LoginRequest } from '../services/api';
 
 interface AuthContextType {
     user: User | null;
-    token: string | null;
+    sessionToken: string | null;  // Backend session token for authentication
     login: (credentials: LoginRequest) => Promise<{ success: boolean; message: string }>;
     signup: (userData: SignupRequest) => Promise<{ success: boolean; message: string }>;
     logout: () => Promise<void>;
     loading: boolean;
     isAuthenticated: boolean;
+    // Helper methods for easier access
+    getUsername: () => string | null;
+    getEmail: () => string | null;
+    getJiraToken: () => string | null;  // User's JIRA token
+    getSessionToken: () => string | null;  // Backend session token
+    getUserData: () => User | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,23 +33,23 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+    const [sessionToken, setSessionToken] = useState<string | null>(localStorage.getItem('sessionToken'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const initAuth = async () => {
-            const savedToken = localStorage.getItem('token');
+            const savedSessionToken = localStorage.getItem('sessionToken');
             const savedUser = localStorage.getItem('user');
 
-            if (savedToken && savedUser) {
+            if (savedSessionToken && savedUser) {
                 try {
                     // Validate token
                     await authAPI.validateToken();
-                    setToken(savedToken);
+                    setSessionToken(savedSessionToken);
                     setUser(JSON.parse(savedUser));
                 } catch (error) {
                     console.error('Token validation failed:', error);
-                    localStorage.removeItem('token');
+                    localStorage.removeItem('sessionToken');
                     localStorage.removeItem('user');
                 }
             }
@@ -56,14 +62,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const login = async (credentials: LoginRequest): Promise<{ success: boolean; message: string }> => {
         try {
             const response = await authAPI.login(credentials);
-            const { token: newToken, username, email } = response.data;
+            const { token: newSessionToken, username, email, jiraToken } = response.data;
 
-            const userData: User = { username: username!, email: email! };
+            const userData: User = {
+                username: username!,
+                email: email!,
+                jiraToken: jiraToken!
+            };
 
-            setToken(newToken!);
+            setSessionToken(newSessionToken!);
             setUser(userData);
 
-            localStorage.setItem('token', newToken!);
+            localStorage.setItem('sessionToken', newSessionToken!);
             localStorage.setItem('user', JSON.stringify(userData));
 
             return { success: true, message: response.data.message };
@@ -79,6 +89,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const signup = async (userData: SignupRequest): Promise<{ success: boolean; message: string }> => {
         try {
             const response = await authAPI.signup(userData);
+
+            // If signup successful and token provided, automatically log the user in
+            if (response.data.success && response.data.token && response.data.username && response.data.email) {
+                const { token: newSessionToken, username, email, jiraToken } = response.data;
+
+                const userInfo: User = {
+                    username: username!,
+                    email: email!,
+                    jiraToken: jiraToken!
+                };
+
+                setSessionToken(newSessionToken!);
+                setUser(userInfo);
+
+                localStorage.setItem('sessionToken', newSessionToken!);
+                localStorage.setItem('user', JSON.stringify(userInfo));
+            }
+
             return { success: true, message: response.data.message };
         } catch (error: any) {
             console.error('Signup failed:', error);
@@ -91,27 +119,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const logout = async (): Promise<void> => {
         try {
-            if (token) {
+            if (sessionToken) {
                 await authAPI.logout();
             }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            setToken(null);
+            setSessionToken(null);
             setUser(null);
-            localStorage.removeItem('token');
+            localStorage.removeItem('sessionToken');
             localStorage.removeItem('user');
         }
     };
 
+    // Helper methods for easier access to user data
+    const getUsername = (): string | null => user?.username || null;
+    const getEmail = (): string | null => user?.email || null;
+    const getJiraToken = (): string | null => user?.jiraToken || null;
+    const getSessionToken = (): string | null => sessionToken;
+    const getUserData = (): User | null => user;
+
     const value: AuthContextType = {
         user,
-        token,
+        sessionToken,
         login,
         signup,
         logout,
         loading,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!sessionToken && !!user,
+        getUsername,
+        getEmail,
+        getJiraToken,
+        getSessionToken,
+        getUserData,
     };
 
     return (

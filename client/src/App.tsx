@@ -5,13 +5,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
-import './index.css';
+import Projects from './components/Projects';
 
 const App: React.FC = () => {
     return (
         <AuthProvider>
             <Router>
-                <div className="App">
+                <div className="min-h-screen">
                     <Routes>
                         <Route path="/login" element={<Login />} />
                         <Route path="/signup" element={<Signup />} />
@@ -20,6 +20,14 @@ const App: React.FC = () => {
                             element={
                                 <ProtectedRoute>
                                     <Dashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/projects"
+                            element={
+                                <ProtectedRoute>
+                                    <Projects />
                                 </ProtectedRoute>
                             }
                         />

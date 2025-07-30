@@ -1,9 +1,10 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import UserInfo from './UserInfo';
 
 const Dashboard: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { logout, getUsername, getEmail } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -11,23 +12,28 @@ const Dashboard: React.FC = () => {
         navigate('/login');
     };
 
+    const username = getUsername();
+    const email = getEmail();
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-gradient-to-r from-primary-500 to-primary-600 shadow-lg">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <header className="bg-white/80 backdrop-blur-sm shadow-xl border-b border-white/20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-6">
                         <div>
-                            <h1 className="text-3xl font-bold text-white">JIRA Bot Dashboard</h1>
-                            <p className="text-primary-100">Manage your RICEFW tickets</p>
+                            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                JIRA Bot Dashboard
+                            </h1>
+                            <p className="text-gray-600 mt-1">Manage your RICEFW tickets and projects</p>
                         </div>
                         <div className="flex items-center space-x-4">
                             <div className="text-right">
-                                <p className="text-white font-medium">Welcome back!</p>
-                                <p className="text-primary-100 text-sm">{user?.username}</p>
+                                <p className="text-gray-900 font-semibold">Welcome back, {username}!</p>
+                                <p className="text-gray-500 text-sm">{email}</p>
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-medium transition duration-200"
+                                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-2 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                             >
                                 Sign Out
                             </button>
@@ -39,11 +45,11 @@ const Dashboard: React.FC = () => {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* User Profile Card */}
-                    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                        <div className="flex items-center mb-4">
-                            <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">
-                                    {user?.username?.charAt(0).toUpperCase()}
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/30">
+                        <div className="flex items-center mb-6">
+                            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-xl">
+                                    {username?.charAt(0).toUpperCase() || 'U'}
                                 </span>
                             </div>
                             <div className="ml-4">
@@ -54,11 +60,11 @@ const Dashboard: React.FC = () => {
                         <div className="space-y-3">
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Username</label>
-                                <p className="text-gray-900 font-medium">{user?.username}</p>
+                                <p className="text-gray-900 font-medium">{username}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Email</label>
-                                <p className="text-gray-900 font-medium">{user?.email}</p>
+                                <p className="text-gray-900 font-medium">{email}</p>
                             </div>
                         </div>
                     </div>
@@ -89,9 +95,12 @@ const Dashboard: React.FC = () => {
                             <p className="text-gray-600">Shortcuts to common tasks</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <button className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200 group">
-                                <div className="text-2xl mb-2">📊</div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700">Analytics</span>
+                            <button
+                                onClick={() => navigate('/projects')}
+                                className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200 group"
+                            >
+                                <div className="text-2xl mb-2">�</div>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700">Projects</span>
                             </button>
                             <button className="flex flex-col items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition duration-200 group">
                                 <div className="text-2xl mb-2">🎫</div>
@@ -102,8 +111,8 @@ const Dashboard: React.FC = () => {
                                 <span className="text-sm font-medium text-gray-700 group-hover:text-purple-700">Settings</span>
                             </button>
                             <button className="flex flex-col items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition duration-200 group">
-                                <div className="text-2xl mb-2">📋</div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-orange-700">Reports</span>
+                                <div className="text-2xl mb-2">�</div>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-orange-700">Analytics</span>
                             </button>
                         </div>
                     </div>
@@ -166,6 +175,11 @@ const Dashboard: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* User Information Section */}
+                <div className="mt-8">
+                    <UserInfo />
                 </div>
             </main>
         </div>

@@ -40,12 +40,16 @@ public class AuthService {
                 return AuthResponse.error("Email already exists");
             }
 
+            // Generate session token for the new user
+            String sessionToken = UUID.randomUUID().toString();
+
             // Create new user
             User user = new User();
             user.setUsername(request.getUsername());
             user.setEmail(request.getEmail());
             user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user.setToken(request.getToken());
+            user.setToken(sessionToken); // Session token for authentication
+            user.setJiraToken(request.getToken()); // User's JIRA token
             user.setTokenExpiry(LocalDateTime.now().plusDays(30)); // Token valid for 30 days
             user.setIsActive(true);
 
@@ -57,7 +61,8 @@ public class AuthService {
                     "User created successfully",
                     savedUser.getUsername(),
                     savedUser.getEmail(),
-                    savedUser.getToken());
+                    sessionToken,
+                    savedUser.getJiraToken());
 
         } catch (Exception e) {
             logger.error("Error during signup: ", e);
@@ -93,7 +98,8 @@ public class AuthService {
                     "Login successful",
                     user.getUsername(),
                     user.getEmail(),
-                    sessionToken);
+                    sessionToken,
+                    user.getJiraToken());
 
         } catch (Exception e) {
             logger.error("Error during login: ", e);

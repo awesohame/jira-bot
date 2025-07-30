@@ -6,7 +6,8 @@ public class AuthResponse {
     private boolean success;
     private String username;
     private String email;
-    private String token;
+    private String token; // Session token for authentication
+    private String jiraToken; // User's JIRA token
 
     // Constructors
     public AuthResponse() {
@@ -25,9 +26,23 @@ public class AuthResponse {
         this.token = token;
     }
 
+    public AuthResponse(String message, boolean success, String username, String email, String token,
+            String jiraToken) {
+        this.message = message;
+        this.success = success;
+        this.username = username;
+        this.email = email;
+        this.token = token;
+        this.jiraToken = jiraToken;
+    }
+
     // Static factory methods
     public static AuthResponse success(String message, String username, String email, String token) {
         return new AuthResponse(message, true, username, email, token);
+    }
+
+    public static AuthResponse success(String message, String username, String email, String token, String jiraToken) {
+        return new AuthResponse(message, true, username, email, token, jiraToken);
     }
 
     public static AuthResponse error(String message) {
@@ -73,5 +88,13 @@ public class AuthResponse {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String getJiraToken() {
+        return jiraToken;
+    }
+
+    public void setJiraToken(String jiraToken) {
+        this.jiraToken = jiraToken;
     }
 }

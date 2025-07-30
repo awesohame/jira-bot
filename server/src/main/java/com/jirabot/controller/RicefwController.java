@@ -19,7 +19,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/ricefw")
-@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173", "http://localhost:5174" })
 public class RicefwController {
 
     @Autowired
