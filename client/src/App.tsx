@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import Projects from './components/Projects';
+import ProjectDetails from './components/ProjectDetails';
 
 const App: React.FC = () => {
     return (
@@ -28,6 +29,14 @@ const App: React.FC = () => {
                             element={
                                 <ProtectedRoute>
                                     <Projects />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/project/:projectKey"
+                            element={
+                                <ProtectedRoute>
+                                    <ProjectDetails />
                                 </ProtectedRoute>
                             }
                         />

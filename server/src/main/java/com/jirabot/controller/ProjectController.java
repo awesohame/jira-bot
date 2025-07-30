@@ -76,6 +76,45 @@ public class ProjectController {
         }
     }
 
+    @GetMapping("/{projectKey}/issues")
+    public ResponseEntity<?> getProjectIssues(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String projectKey) {
+
+        try {
+            // Extract and validate session token
+            String sessionToken = extractToken(authHeader);
+            if (sessionToken == null) {
+                return ResponseEntity.badRequest().body("Invalid authorization header");
+            }
+
+            // Get user by session token
+            Optional<User> userOptional = authService.getUserByToken(sessionToken);
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired session");
+            }
+
+            User user = userOptional.get();
+
+            if (user.getJiraToken() == null) {
+                return ResponseEntity.badRequest()
+                        .body("No JIRA token found for user. Please update your profile.");
+            }
+
+            logger.info("Fetching issues for project: {} for user: {}", projectKey, user.getUsername());
+
+            // Call Jira API to get project issues
+            Object jiraResponse = jiraService.getProjectIssues(projectKey, user.getEmail(), user.getJiraToken());
+
+            return ResponseEntity.ok(jiraResponse);
+
+        } catch (Exception e) {
+            logger.error("Error fetching project issues: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching project issues: " + e.getMessage());
+        }
+    }
+
     private String extractToken(String authHeader) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
