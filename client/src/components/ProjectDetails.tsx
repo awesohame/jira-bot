@@ -239,7 +239,7 @@ const ProjectDetails: React.FC = () => {
     // Get unique filter options
     const getUniqueStatuses = () => [...new Set(issues.map(issue => issue.status.name))];
     const getUniquePriorities = () => [...new Set(issues.map(issue => issue.priority.name))];
-    const getUniqueAssignees = () => [...new Set(issues.map(issue => issue.assignee?.displayName).filter(Boolean))];
+    // const getUniqueAssignees = () => [...new Set(issues.map(issue => issue.assignee?.displayName).filter(Boolean))];
     const getUniqueIssueTypes = () => [...new Set(issues.map(issue => issue.issueType.name))];
 
     // Create Issue function

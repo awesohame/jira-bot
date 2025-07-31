@@ -24,7 +24,7 @@ hs_err_pid*
 replay_pid*
 
 # Maven
-target/
+server/target/
 
 # Gradle (if applicable)
 build/

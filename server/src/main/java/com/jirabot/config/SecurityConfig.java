@@ -29,8 +29,9 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
-                .headers(headers -> headers.frameOptions().sameOrigin()); // For H2 console
-
+                .headers(headers -> headers
+                        .frameOptions(frameOptions -> frameOptions
+                                .sameOrigin()));
         return http.build();
     }
 
