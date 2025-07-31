@@ -86,22 +86,73 @@ public class RicefwController {
     @GetMapping("/tickets/search")
     public ResponseEntity<Page<RicefwTicket>> searchTickets(
             @RequestParam(required = false) String title,
-            @RequestParam(required = false) RicefwType ricefwType,
-            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(required = false) String ricefwType,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String assignee,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<RicefwTicket> tickets = ricefwTicketRepository.searchTickets(title, ricefwType, status, assignee,
+
+        // Convert string parameters to enums with proper error handling
+        RicefwType ricefwTypeEnum = null;
+        if (ricefwType != null && !ricefwType.trim().isEmpty()) {
+            try {
+                ricefwTypeEnum = RicefwType.valueOf(ricefwType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // If enum value is invalid, try to match by display name
+                for (RicefwType type : RicefwType.values()) {
+                    if (type.getDisplayName().equalsIgnoreCase(ricefwType)) {
+                        ricefwTypeEnum = type;
+                        break;
+                    }
+                }
+            }
+        }
+
+        TicketStatus statusEnum = null;
+        if (status != null && !status.trim().isEmpty()) {
+            try {
+                statusEnum = TicketStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // If enum value is invalid, ignore it for now
+                System.err.println("Invalid status value: " + status);
+            }
+        }
+
+        Page<RicefwTicket> tickets = ricefwTicketRepository.searchTickets(title, ricefwTypeEnum, statusEnum, assignee,
                 pageable);
         return ResponseEntity.ok(tickets);
     }
 
     @GetMapping("/tickets/type/{type}")
-    public ResponseEntity<List<RicefwTicket>> getTicketsByType(@PathVariable RicefwType type) {
-        List<RicefwTicket> tickets = ricefwTicketRepository.findByRicefwType(type);
-        return ResponseEntity.ok(tickets);
+    public ResponseEntity<List<RicefwTicket>> getTicketsByType(@PathVariable String type) {
+        try {
+            RicefwType ricefwType = null;
+
+            // Try to parse as enum first
+            try {
+                ricefwType = RicefwType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Try to match by display name
+                for (RicefwType t : RicefwType.values()) {
+                    if (t.getDisplayName().equalsIgnoreCase(type)) {
+                        ricefwType = t;
+                        break;
+                    }
+                }
+            }
+
+            if (ricefwType == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            List<RicefwTicket> tickets = ricefwTicketRepository.findByRicefwType(ricefwType);
+            return ResponseEntity.ok(tickets);
+        } catch (Exception e) {
+            System.err.println("Error getting tickets by type: " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/tickets/status/{status}")
@@ -152,6 +203,20 @@ public class RicefwController {
     public ResponseEntity<List<JiraConfiguration>> getActiveConfigurations() {
         List<JiraConfiguration> configurations = jiraConfigurationRepository.findByIsActiveTrue();
         return ResponseEntity.ok(configurations);
+    }
+
+    @GetMapping("/types")
+    public ResponseEntity<Map<String, Object>> getRicefwTypes() {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, String> types = new HashMap<>();
+
+        for (RicefwType type : RicefwType.values()) {
+            types.put(type.name(), type.getDisplayName());
+        }
+
+        response.put("types", types);
+        response.put("available", RicefwType.values());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/configurations")
