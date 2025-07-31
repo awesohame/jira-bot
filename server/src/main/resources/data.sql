@@ -1,8 +1,9 @@
--- Insert sample JIRA configurations
+-- Insert sample JIRA configurations (idempotent)
 INSERT INTO jira_configurations (name, jira_url, project_key, project_name, username, default_issue_type, is_active, description, created_at, updated_at, created_by, updated_by)
 VALUES 
     ('Default JIRA', 'https://your-company.atlassian.net', 'RICEFW', 'RICEFW Project', 'admin@company.com', 'Task', true, 'Default JIRA configuration for RICEFW tickets', NOW(), NOW(), 'system', 'system'),
-    ('Test JIRA', 'https://test-company.atlassian.net', 'TEST', 'Test Project', 'test@company.com', 'Story', false, 'Test JIRA configuration', NOW(), NOW(), 'system', 'system');
+    ('Test JIRA', 'https://test-company.atlassian.net', 'TEST', 'Test Project', 'test@company.com', 'Story', false, 'Test JIRA configuration', NOW(), NOW(), 'system', 'system')
+ON CONFLICT (name) DO NOTHING;
 
 -- Insert sample RICEFW tickets
 INSERT INTO ricefw_tickets (title, description, ricefw_type, status, priority, assignee, reporter, business_requirement, technical_specification, estimated_hours, created_at, updated_at, created_by, updated_by)
