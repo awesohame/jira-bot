@@ -76,9 +76,15 @@ public class JiraService {
     }
 
     public Object getProjectIssues(String projectKey, String email, String apiToken) {
+        return getProjectIssues(projectKey, email, apiToken, null);
+    }
+
+    public Object getProjectIssues(String projectKey, String email, String apiToken, String atlassianDomain) {
         try {
-            // Extract domain from email (assuming email format like user@domain.com)
-            String domain = extractDomainFromEmail(email);
+            // Use provided domain or extract from email
+            String domain = (atlassianDomain != null && !atlassianDomain.trim().isEmpty()) 
+                ? atlassianDomain 
+                : extractDomainFromEmail(email);
 
             logger.info("Extracted domain '{}' from email '{}' for user", domain, email);
 
@@ -190,8 +196,7 @@ public class JiraService {
     }
 
     private String extractDomainFromEmail(String email) {
-        // FIXME: This is a temporary workaround. The domain should be stored with the
-        // user
+        // FIXME: This is a temporary workaround. The domain should be stored with the user
         // For now, we'll use the known working domain from project searches
         if (email != null && email.contains("@")) {
             String domain = email.split("@")[1];
@@ -199,12 +204,14 @@ public class JiraService {
             if (domain.contains(".")) {
                 String extractedDomain = domain.split("\\.")[0];
 
-                // Temporary hardcode for known working domain
+                // Temporary hardcode for known working domains
                 // TODO: Store Atlassian domain in User entity instead of extracting from email
                 if ("gmail".equals(extractedDomain)) {
-                    logger.warn("Email domain '{}' extracted from '{}', but using 'infectus07' as Atlassian domain",
-                            extractedDomain, email);
-                    return "infectus07";
+                    // Try to extract from email prefix for Gmail users
+                    String emailPrefix = email.split("@")[0];
+                    logger.warn("Email domain '{}' extracted from '{}', using email prefix '{}' as Atlassian domain",
+                            extractedDomain, email, emailPrefix);
+                    return emailPrefix;
                 }
 
                 return extractedDomain;

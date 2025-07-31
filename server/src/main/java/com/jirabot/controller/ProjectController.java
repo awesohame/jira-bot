@@ -66,6 +66,13 @@ public class ProjectController {
             logger.info("Searching projects for user: {} in domain: {}", user.getUsername(),
                     request.getAtlassianDomain());
 
+            // Store the Atlassian domain for future use if not already set
+            if (user.getAtlassianDomain() == null || user.getAtlassianDomain().trim().isEmpty()) {
+                user.setAtlassianDomain(request.getAtlassianDomain());
+                authService.updateUser(user);
+                logger.info("Stored Atlassian domain '{}' for user: {}", request.getAtlassianDomain(), user.getUsername());
+            }
+
             // Call Jira API
             JiraProjectResponse jiraResponse = jiraService.getProjects(request);
 
@@ -106,7 +113,7 @@ public class ProjectController {
             logger.info("Fetching issues for project: {} for user: {}", projectKey, user.getUsername());
 
             // Call Jira API to get project issues
-            Object jiraResponse = jiraService.getProjectIssues(projectKey, user.getEmail(), user.getJiraToken());
+            Object jiraResponse = jiraService.getProjectIssues(projectKey, user.getEmail(), user.getJiraToken(), user.getAtlassianDomain());
 
             return ResponseEntity.ok(jiraResponse);
 

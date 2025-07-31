@@ -147,4 +147,15 @@ public class AuthService {
             return AuthResponse.error("An error occurred during logout");
         }
     }
+
+    public User updateUser(User user) {
+        try {
+            User updatedUser = userRepository.save(user);
+            logger.info("User updated successfully: {}", updatedUser.getUsername());
+            return updatedUser;
+        } catch (Exception e) {
+            logger.error("Error updating user: ", e);
+            throw new RuntimeException("Failed to update user", e);
+        }
+    }
 }

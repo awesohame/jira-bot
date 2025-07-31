@@ -39,6 +39,9 @@ public class User extends BaseEntity {
     @Column(name = "jira_token", length = 500)
     private String jiraToken;
 
+    @Column(name = "atlassian_domain", length = 100)
+    private String atlassianDomain;
+
     @Column(name = "token_expiry")
     private LocalDateTime tokenExpiry;
 
@@ -113,6 +116,14 @@ public class User extends BaseEntity {
 
     public void setJiraToken(String jiraToken) {
         this.jiraToken = jiraToken;
+    }
+
+    public String getAtlassianDomain() {
+        return atlassianDomain;
+    }
+
+    public void setAtlassianDomain(String atlassianDomain) {
+        this.atlassianDomain = atlassianDomain;
     }
 
     public Boolean getIsActive() {
