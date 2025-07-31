@@ -3,9 +3,11 @@ package com.jirabot.controller;
 import com.jirabot.dto.JiraProjectRequest;
 import com.jirabot.dto.JiraProjectResponse;
 import com.jirabot.dto.CreateIssueRequest;
+import com.jirabot.dto.BulkIssueCreationResponse;
 import com.jirabot.entity.User;
 import com.jirabot.service.AuthService;
 import com.jirabot.service.JiraService;
+import com.jirabot.service.ExcelProcessingService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +32,9 @@ public class ProjectController {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private ExcelProcessingService excelProcessingService;
 
     @PostMapping("/search")
     public ResponseEntity<?> searchProjects(
@@ -70,7 +76,8 @@ public class ProjectController {
             if (user.getAtlassianDomain() == null || user.getAtlassianDomain().trim().isEmpty()) {
                 user.setAtlassianDomain(request.getAtlassianDomain());
                 authService.updateUser(user);
-                logger.info("Stored Atlassian domain '{}' for user: {}", request.getAtlassianDomain(), user.getUsername());
+                logger.info("Stored Atlassian domain '{}' for user: {}", request.getAtlassianDomain(),
+                        user.getUsername());
             }
 
             // Call Jira API
@@ -113,7 +120,8 @@ public class ProjectController {
             logger.info("Fetching issues for project: {} for user: {}", projectKey, user.getUsername());
 
             // Call Jira API to get project issues
-            Object jiraResponse = jiraService.getProjectIssues(projectKey, user.getEmail(), user.getJiraToken(), user.getAtlassianDomain());
+            Object jiraResponse = jiraService.getProjectIssues(projectKey, user.getEmail(), user.getJiraToken(),
+                    user.getAtlassianDomain());
 
             return ResponseEntity.ok(jiraResponse);
 
@@ -162,6 +170,79 @@ public class ProjectController {
             logger.error("Error creating issue: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error creating issue: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{projectKey}/issues/bulk")
+    public ResponseEntity<?> createIssuesBulk(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String projectKey,
+            @RequestParam("file") MultipartFile file) {
+
+        try {
+            // Extract and validate session token
+            String sessionToken = extractToken(authHeader);
+            if (sessionToken == null) {
+                return ResponseEntity.badRequest().body("Invalid authorization header");
+            }
+
+            // Get user by session token
+            Optional<User> userOptional = authService.getUserByToken(sessionToken);
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired session");
+            }
+
+            User user = userOptional.get();
+
+            // Check if user has JIRA token
+            if (user.getJiraToken() == null || user.getJiraToken().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body("No JIRA token found for user. Please update your profile.");
+            }
+
+            // Validate file
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("Please upload a valid Excel file");
+            }
+
+            // Check file type
+            String contentType = file.getContentType();
+            if (contentType == null
+                    || (!contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                            && !contentType.equals("application/vnd.ms-excel"))) {
+                return ResponseEntity.badRequest()
+                        .body("Invalid file type. Please upload an Excel file (.xlsx or .xls)");
+            }
+
+            logger.info("Processing bulk issue creation from Excel file '{}' for project: {} by user: {}",
+                    file.getOriginalFilename(), projectKey, user.getUsername());
+
+            // Validate Excel structure
+            if (!excelProcessingService.validateExcelStructure(file)) {
+                return ResponseEntity.badRequest()
+                        .body("Invalid Excel file structure. Please ensure the file has the correct format.");
+            }
+
+            // Parse Excel file to get issue requests
+            List<CreateIssueRequest> issueRequests = excelProcessingService.parseExcelFile(file);
+
+            if (issueRequests.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body("No valid issues found in the Excel file. Please check the file format and content.");
+            }
+
+            logger.info("Found {} valid issues to create in project: {}", issueRequests.size(), projectKey);
+
+            // Create issues in bulk
+            BulkIssueCreationResponse response = jiraService.createIssuesBulk(
+                    projectKey, user.getEmail(), user.getJiraToken(), issueRequests);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error creating issues in bulk: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error creating issues in bulk: " + e.getMessage());
         }
     }
 

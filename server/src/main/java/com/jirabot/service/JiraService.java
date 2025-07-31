@@ -3,6 +3,7 @@ package com.jirabot.service;
 import com.jirabot.dto.JiraProjectRequest;
 import com.jirabot.dto.JiraProjectResponse;
 import com.jirabot.dto.CreateIssueRequest;
+import com.jirabot.dto.BulkIssueCreationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,9 +83,9 @@ public class JiraService {
     public Object getProjectIssues(String projectKey, String email, String apiToken, String atlassianDomain) {
         try {
             // Use provided domain or extract from email
-            String domain = (atlassianDomain != null && !atlassianDomain.trim().isEmpty()) 
-                ? atlassianDomain 
-                : extractDomainFromEmail(email);
+            String domain = (atlassianDomain != null && !atlassianDomain.trim().isEmpty())
+                    ? atlassianDomain
+                    : extractDomainFromEmail(email);
 
             logger.info("Extracted domain '{}' from email '{}' for user", domain, email);
 
@@ -196,7 +197,8 @@ public class JiraService {
     }
 
     private String extractDomainFromEmail(String email) {
-        // FIXME: This is a temporary workaround. The domain should be stored with the user
+        // FIXME: This is a temporary workaround. The domain should be stored with the
+        // user
         // For now, we'll use the known working domain from project searches
         if (email != null && email.contains("@")) {
             String domain = email.split("@")[1];
@@ -538,5 +540,59 @@ public class JiraService {
             logger.error("Error applying transition {} to issue {}: {}", transitionId, issueKey, e.getMessage(), e);
             throw new RuntimeException("Error applying transition: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Creates multiple issues in bulk
+     */
+    public BulkIssueCreationResponse createIssuesBulk(String projectKey, String email, String apiToken,
+            List<CreateIssueRequest> issueRequests) {
+        List<String> createdIssueKeys = new ArrayList<>();
+        List<BulkIssueCreationResponse.BulkIssueError> errors = new ArrayList<>();
+        int successCount = 0;
+        int failedCount = 0;
+
+        logger.info("Starting bulk creation of {} issues in project '{}'", issueRequests.size(), projectKey);
+
+        for (int i = 0; i < issueRequests.size(); i++) {
+            CreateIssueRequest request = issueRequests.get(i);
+            int rowNumber = i + 2; // Excel row number (assuming header in row 1)
+
+            try {
+                Object response = createIssue(projectKey, email, apiToken, request);
+
+                // Extract issue key from response
+                if (response instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> responseMap = (Map<String, Object>) response;
+                    String issueKey = (String) responseMap.get("key");
+                    if (issueKey != null) {
+                        createdIssueKeys.add(issueKey);
+                        logger.info("Successfully created issue {} for row {}", issueKey, rowNumber);
+                    }
+                }
+                successCount++;
+
+                // Add a small delay to avoid overwhelming the JIRA API
+                Thread.sleep(100);
+
+            } catch (Exception e) {
+                logger.error("Failed to create issue for row {}: {}", rowNumber, e.getMessage());
+                errors.add(new BulkIssueCreationResponse.BulkIssueError(
+                        rowNumber,
+                        e.getMessage(),
+                        request));
+                failedCount++;
+            }
+        }
+
+        logger.info("Bulk creation completed: {} successful, {} failed", successCount, failedCount);
+
+        return new BulkIssueCreationResponse(
+                issueRequests.size(),
+                successCount,
+                failedCount,
+                createdIssueKeys,
+                errors);
     }
 }

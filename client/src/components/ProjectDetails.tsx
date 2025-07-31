@@ -99,6 +99,26 @@ interface TransitionsResponse {
     transitions: JiraTransition[];
 }
 
+interface BulkCreateResults {
+    totalProcessed: number;
+    successfullyCreated: number;
+    failed: number;
+    createdIssueKeys: string[];
+    errors: BulkIssueError[];
+}
+
+interface BulkIssueError {
+    rowNumber: number;
+    errorMessage: string;
+    failedRequest: {
+        summary: string;
+        description: string;
+        issueTypeName: string;
+        priorityName: string;
+        labels: string[];
+    };
+}
+
 const ProjectDetails: React.FC = () => {
     const { projectKey } = useParams<{ projectKey: string }>();
     const navigate = useNavigate();
@@ -136,6 +156,12 @@ const ProjectDetails: React.FC = () => {
     const [availableTransitions, setAvailableTransitions] = useState<JiraTransition[]>([]);
     const [isLoadingTransitions, setIsLoadingTransitions] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
+
+    // Bulk Create Issues Modal state
+    const [isBulkCreateModalOpen, setIsBulkCreateModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isBulkCreating, setBulkCreating] = useState(false);
+    const [bulkCreateResults, setBulkCreateResults] = useState<BulkCreateResults | null>(null);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -279,6 +305,57 @@ const ProjectDetails: React.FC = () => {
         } finally {
             setIsCreating(false);
         }
+    };
+
+    // Bulk Create Issues function
+    const handleBulkCreateIssues = async () => {
+        if (!selectedFile) {
+            alert('Please select an Excel file first.');
+            return;
+        }
+
+        setBulkCreating(true);
+        setBulkCreateResults(null);
+
+        try {
+            const token = localStorage.getItem('sessionToken');
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            const response = await fetch(`http://localhost:8080/api/projects/${projectKey}/issues/bulk`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to create issues: ${response.statusText}`);
+            }
+
+            const results: BulkCreateResults = await response.json();
+            setBulkCreateResults(results);
+
+            // Refresh the issues list to include newly created issues
+            if (results.successfullyCreated > 0) {
+                // Reload the page to get updated issues list
+                window.location.reload();
+            }
+
+        } catch (err) {
+            console.error('Error creating bulk issues:', err);
+            alert(`Failed to create issues: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setBulkCreating(false);
+        }
+    };
+
+    // Reset bulk create modal
+    const resetBulkCreateModal = () => {
+        setSelectedFile(null);
+        setBulkCreateResults(null);
+        setIsBulkCreateModalOpen(false);
     };
 
     // Fetch available transitions for an issue
@@ -520,15 +597,26 @@ const ProjectDetails: React.FC = () => {
                         <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/30 p-4 mb-4">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-                                <button
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    <span>Create Issue</span>
-                                </button>
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={() => setIsBulkCreateModalOpen(true)}
+                                        className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span>Bulk Create</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        <span>Create Issue</span>
+                                    </button>
+                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {/* Search */}
@@ -920,6 +1008,207 @@ const ProjectDetails: React.FC = () => {
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Create Issues Modal */}
+                {isBulkCreateModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6">
+                                {/* Modal Header */}
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-900">Bulk Create Issues</h2>
+                                    <button
+                                        onClick={resetBulkCreateModal}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* Instructions */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                    <h3 className="text-sm font-semibold text-blue-800 mb-2">Excel File Format Requirements:</h3>
+                                    <div className="text-sm text-blue-700">
+                                        <p className="mb-2">Your Excel file should have the following columns in order:</p>
+                                        <ul className="list-disc list-inside space-y-1 ml-4">
+                                            <li><strong>Column A:</strong> Summary (required)</li>
+                                            <li><strong>Column B:</strong> Description (optional)</li>
+                                            <li><strong>Column C:</strong> Issue Type (Task, Bug, Story, etc.)</li>
+                                            <li><strong>Column D:</strong> Priority (Highest, High, Medium, Low, Lowest)</li>
+                                            <li><strong>Column E:</strong> Labels (comma-separated, optional)</li>
+                                        </ul>
+                                        <p className="mt-2 text-xs">Note: Row 1 should contain headers and will be skipped during processing.</p>
+                                    </div>
+                                </div>
+
+                                {/* File Upload Section */}
+                                {!bulkCreateResults && (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Select Excel File (.xlsx or .xls)
+                                            </label>
+                                            <input
+                                                type="file"
+                                                accept=".xlsx,.xls"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    setSelectedFile(file || null);
+                                                }}
+                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                disabled={isBulkCreating}
+                                            />
+                                        </div>
+
+                                        {selectedFile && (
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                                <div className="flex items-center space-x-2">
+                                                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span className="text-sm text-green-800">
+                                                        Selected file: <strong>{selectedFile.name}</strong> ({(selectedFile.size / 1024).toFixed(1)} KB)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Upload Button */}
+                                        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                                            <button
+                                                type="button"
+                                                onClick={resetBulkCreateModal}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
+                                                disabled={isBulkCreating}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleBulkCreateIssues}
+                                                disabled={!selectedFile || isBulkCreating}
+                                                className="px-6 py-2 text-sm font-medium text-white bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 rounded-md transition-colors duration-200 flex items-center space-x-2"
+                                            >
+                                                {isBulkCreating ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                        <span>Processing...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                        </svg>
+                                                        <span>Upload & Create Issues</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Results Section */}
+                                {bulkCreateResults && (
+                                    <div className="space-y-6">
+                                        {/* Summary */}
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Creation Results</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 text-center">
+                                                    <div className="text-2xl font-bold text-blue-800">{bulkCreateResults.totalProcessed}</div>
+                                                    <div className="text-sm text-blue-600">Total Processed</div>
+                                                </div>
+                                                <div className="bg-green-100 border border-green-200 rounded-lg p-3 text-center">
+                                                    <div className="text-2xl font-bold text-green-800">{bulkCreateResults.successfullyCreated}</div>
+                                                    <div className="text-sm text-green-600">Successfully Created</div>
+                                                </div>
+                                                <div className="bg-red-100 border border-red-200 rounded-lg p-3 text-center">
+                                                    <div className="text-2xl font-bold text-red-800">{bulkCreateResults.failed}</div>
+                                                    <div className="text-sm text-red-600">Failed</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Successfully Created Issues */}
+                                        {bulkCreateResults.createdIssueKeys.length > 0 && (
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                <h4 className="text-md font-semibold text-green-800 mb-3">Successfully Created Issues:</h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {bulkCreateResults.createdIssueKeys.map((issueKey) => (
+                                                        <span
+                                                            key={issueKey}
+                                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"
+                                                        >
+                                                            {issueKey}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Failed Issues */}
+                                        {bulkCreateResults.errors.length > 0 && (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <h4 className="text-md font-semibold text-red-800 mb-3">Failed Issues:</h4>
+                                                <div className="space-y-3 max-h-60 overflow-y-auto">
+                                                    {bulkCreateResults.errors.map((error, index) => (
+                                                        <div key={index} className="bg-white border border-red-200 rounded-md p-3">
+                                                            <div className="flex items-start space-x-3">
+                                                                <div className="flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                                                    <span className="text-xs font-medium text-red-800">
+                                                                        {error.rowNumber}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-medium text-red-800">
+                                                                        Row {error.rowNumber}: {error.failedRequest.summary}
+                                                                    </p>
+                                                                    <p className="text-sm text-red-600 mt-1">
+                                                                        {error.errorMessage}
+                                                                    </p>
+                                                                    <div className="text-xs text-gray-600 mt-2">
+                                                                        <span className="font-medium">Details:</span> {error.failedRequest.issueTypeName} | {error.failedRequest.priorityName}
+                                                                        {error.failedRequest.labels.length > 0 && (
+                                                                            <span> | Labels: {error.failedRequest.labels.join(', ')}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons */}
+                                        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                                            <button
+                                                type="button"
+                                                onClick={resetBulkCreateModal}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
+                                            >
+                                                Close
+                                            </button>
+                                            {bulkCreateResults.failed > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setBulkCreateResults(null);
+                                                        setSelectedFile(null);
+                                                    }}
+                                                    className="px-4 py-2 text-sm font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-md transition-colors duration-200"
+                                                >
+                                                    Try Again
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
