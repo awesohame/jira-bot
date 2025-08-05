@@ -1,55 +1,56 @@
 # JIRA Bot
 
-## Start Methods
+A full-stack web application for managing JIRA issues with bulk creation capabilities.
 
-### Method 1: Docker (Recommended for new environments)
+## Prerequisites
+
+- **Docker & Docker Compose**
+- **Node.js 18+** (for frontend)
+
+## JIRA Setup
+
+1. **Create Atlassian Account**: Sign up at https://id.atlassian.com/signup
+2. **Get API Token**: Visit https://developer.atlassian.com/console/myapps/ to create an API token
+3. **Important**: The email used for the application account must match your Atlassian account email
+
+## Quick Start
+
 ```bash
-# PowerShell (Windows)
+# Start backend and database
 docker-compose down; docker volume prune -f; docker-compose up --build
 
-# Linux/macOS
-docker-compose down && docker volume prune -f && docker-compose up --build
+# Start frontend (separate terminal)
+cd client
+npm install
+npm run dev
 ```
 
-### Method 2: Maven with Development Database (H2 - in-memory)
-```bash
-cd server
-mvn spring-boot:run
-```
-*Note: Uses H2 database by default - no PostgreSQL setup required*
+## Application URLs
 
-### Method 3: Maven with Local PostgreSQL Setup
-```bash
-# First, set up PostgreSQL locally:
-# 1. Install PostgreSQL
-# 2. Create database: CREATE DATABASE jirabot;
-# 3. Create user: CREATE USER jirabot WITH PASSWORD 'password';
-# 4. Grant permissions: GRANT ALL PRIVILEGES ON DATABASE jirabot TO jirabot;
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8080/api
+- **pgAdmin**: http://localhost:8081 (admin@jirabot.com / admin)
 
-cd server
-mvn spring-boot:run -Dspring.profiles.active=local
-```
+## Features
 
-### Method 4: Database Only + Manual Backend
-```bash
-# Start only database
-docker-compose up postgres pgadmin -d
+- User registration and login
+- View and manage JIRA projects
+- Create, view, and update JIRA issues
+- **Bulk Issue Creation**: Upload Excel files to create multiple issues
+- RICEFW categorization (Report, Interface, Conversion, Enhancement, Form, Workflow)
+- Filter issues by status, priority, assignee, type, and category
 
-# Backend with Docker profile
-cd server
-mvn spring-boot:run -Dspring.profiles.active=docker
-```
+## Bulk Issue Creation Format
+
+Excel file columns:
+- **A**: Summary (required)
+- **B**: Description (optional)  
+- **C**: Issue Type (Task, Bug, Story, etc.)
+- **D**: Priority (Highest, High, Medium, Low, Lowest)
+- **E**: Labels (comma-separated, optional)
 
 ## Troubleshooting
 
-### PostgreSQL Authentication Error
-If you get "password authentication failed" when using `mvn spring-boot:run`:
-- **Solution 1**: Use Method 1 (Docker) - sets up database automatically
-- **Solution 2**: Use Method 2 (H2) - no PostgreSQL needed  
-- **Solution 3**: Set up local PostgreSQL using Method 3 instructions
-
-## Access
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8080/api
-- Database (pgAdmin): http://localhost:5050 (admin@admin.com / admin)  
-- pgAdmin: http://localhost:8081 (admin@jirabot.com / admin)
+- **Port conflicts**: Modify docker-compose.yml if ports 5173, 8080, 5432, or 8081 are in use
+- **JIRA API errors**: Verify your Atlassian email matches the application account email and API token is correct
+- **Build errors**: Run `npm install` in client directory
